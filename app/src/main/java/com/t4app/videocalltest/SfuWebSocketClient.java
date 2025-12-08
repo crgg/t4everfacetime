@@ -17,7 +17,10 @@ public class SfuWebSocketClient extends WebSocketListener {
     private final OkHttpClient client;
     private WebSocket webSocket;
 
-    public interface Callback{
+
+    private boolean isConnected = false;
+
+    public interface Callback {
         void onConnected();
         void onDisconnected();
         void onMessage(String text);
@@ -47,12 +50,18 @@ public class SfuWebSocketClient extends WebSocketListener {
 
     public void close(){
         if (webSocket != null){
+            isConnected = false;
             webSocket.close(1000, "Closing");
         }
     }
 
+    public boolean isConnected() {
+        return isConnected;
+    }
+
     @Override
     public void onOpen(@NonNull WebSocket webSocket, @NonNull Response response) {
+        isConnected = true;
         if (callback != null){
             callback.onConnected();
         }
@@ -60,6 +69,7 @@ public class SfuWebSocketClient extends WebSocketListener {
 
     @Override
     public void onClosing(@NonNull WebSocket webSocket, int code, @NonNull String reason) {
+        isConnected = false;
         webSocket.close(code, reason);
         if (callback != null){
             callback.onDisconnected();
@@ -73,9 +83,9 @@ public class SfuWebSocketClient extends WebSocketListener {
         }
     }
 
-
     @Override
     public void onFailure(@NonNull WebSocket webSocket, @NonNull Throwable t, @Nullable Response response) {
+        isConnected = false;
         if (callback != null){
             callback.onFailure(t);
         }

@@ -9,10 +9,6 @@ import java.util.List;
 
 public class VideoCallEvent {
 
-    public static class Connecting extends VideoCallEvent {
-
-    }
-
     public static class Connected extends VideoCallEvent {
         private final RoomInfo roomInfo;
         private final String name;
@@ -86,6 +82,50 @@ public class VideoCallEvent {
 
         public List<String> getStreamIds() {
             return streamIds;
+        }
+    }
+
+    public static class ToggleLocalAudio extends VideoCallEvent {
+        private final boolean audioStatus;
+        public ToggleLocalAudio(boolean audioStatus) {
+            this.audioStatus = audioStatus;
+        }
+
+        public boolean isAudioStatus() {
+            return audioStatus;
+        }
+    }
+
+    public static class ToggleLocalVideo extends VideoCallEvent {
+        private final boolean videoStatus;
+        public ToggleLocalVideo(boolean videoStatus) {
+            this.videoStatus = videoStatus;
+        }
+
+        public boolean isVideoStatus() {
+            return videoStatus;
+        }
+    }
+
+    public static class ToggleRemoteAudio extends VideoCallEvent {
+        private final boolean audioStatus;
+        public ToggleRemoteAudio(boolean audioStatus) {
+            this.audioStatus = audioStatus;
+        }
+
+        public boolean isAudioStatus() {
+            return audioStatus;
+        }
+    }
+
+    public static class ToggleRemoteVideo extends VideoCallEvent {
+        private final boolean videoStatus;
+        public ToggleRemoteVideo(boolean videoStatus) {
+            this.videoStatus = videoStatus;
+        }
+
+        public boolean isVideoStatus() {
+            return videoStatus;
         }
     }
 

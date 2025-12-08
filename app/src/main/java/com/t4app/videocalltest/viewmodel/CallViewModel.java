@@ -23,24 +23,7 @@ public class CallViewModel extends ViewModel implements VideoCallEventListener{
 
     @Override
     public void onCallEvent(VideoCallEvent videoCallEvent) {
-        if (videoCallEvent instanceof VideoCallEvent.Connecting){
-            callManager.createPeerConnection();
-            sendEvent(videoCallEvent);
-        } else if (videoCallEvent instanceof VideoCallEvent.Connected){
-            sendEvent(videoCallEvent);
-        } else if (videoCallEvent instanceof VideoCallEvent.CallerConnected){
-            sendEvent(videoCallEvent);
-        } else if (videoCallEvent instanceof VideoCallEvent.Disconnect) {
-            sendEvent(videoCallEvent);
-        } else if (videoCallEvent instanceof VideoCallEvent.RemoteDisconnect){
-            sendEvent(videoCallEvent);
-        }else if (videoCallEvent instanceof VideoCallEvent.SendIceCandidate){
-            sendEvent(videoCallEvent);
-        }else if (videoCallEvent instanceof VideoCallEvent.AddLocalUser){
-            sendEvent(videoCallEvent);
-        }else if (videoCallEvent instanceof VideoCallEvent.AddRemoteUser){
-            sendEvent(videoCallEvent);
-        }
+        sendEvent(videoCallEvent);
     }
 
 
@@ -58,6 +41,17 @@ public class CallViewModel extends ViewModel implements VideoCallEventListener{
 
             VideoCallViewEvent.JoinRoom videoCall = (VideoCallViewEvent.JoinRoom) event;
             callManager.joinRoom(videoCall.getRoomName(), videoCall.getUserName(), true);
+
+        } else if (event instanceof VideoCallViewEvent.ToggleLocalVideo){
+
+            VideoCallViewEvent.ToggleLocalVideo videoCall = (VideoCallViewEvent.ToggleLocalVideo) event;
+            callManager.sendToggleVideoEvent(videoCall);
+
+        } else if (event instanceof VideoCallViewEvent.ToggleLocalAudio){
+
+            VideoCallViewEvent.ToggleLocalAudio videoCall = (VideoCallViewEvent.ToggleLocalAudio) event;
+            callManager.sendToggleAudioEvent(videoCall);
+
         }
     }
 

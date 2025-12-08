@@ -47,6 +47,8 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
     private PeerConnectionFactory peerConnectionFactory;
 
     private boolean iAmCaller;
+    private boolean isInRoom;
+    private RoomInfo localRoomInfo;
 
     public void setListener(VideoCallEventListener listener) {
         this.listener = listener;
@@ -70,156 +72,6 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
     }
 
 
-    public void createRoom(String room, String name){
-        Map<String, String> body = new HashMap<>();
-        body.put("roomName", room);
-        body.put("userName", name);
-
-        Call<RoomResponse> call = apiServices.createRoom(body);
-        call.enqueue(new Callback<>() {
-            @Override
-            public void onResponse(Call<RoomResponse> call, Response<RoomResponse> response) {
-                if (response.isSuccessful()) {
-                    RoomResponse body = response.body();
-                    if (body != null) {
-                        if (body.isOk()) {
-                            RoomInfo roomInfo = body.getRoom();
-                            StringBuilder textInfo = new StringBuilder("INFO ROOM\nRoom Created RoomName: " + roomInfo.getName());
-                            for (String participant : roomInfo.getParticipants()) {
-                                String formatedString = "\nParticipant: " + participant;
-                                textInfo.append(formatedString);
-                            }
-                            globalRoom = roomInfo.getName();
-                            globalUserName = name;
-                            boolean inRoom = true;
-//                            binding.infoRoom.setText(textInfo);
-
-                            joinRoom(roomInfo.getName(), name, inRoom);
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<RoomResponse> call, Throwable t) {
-                Log.e(TAG, "onFailure: CREATE ROOM", t);
-            }
-        });
-    }
-
-    public void joinRoom(String room, String name, boolean inRoom){
-        Map<String, String> body = new HashMap<>();
-        body.put("roomName", room);
-        body.put("userName", name);
-
-        //TODO:CHECK THIS IN UTILS
-//        handleRoomUtils = new HandleRoomUtils(globalRoom, globalUserName, peerConnection, sfuClient);
-
-        Call<RoomResponse> call = apiServices.joinRoom(body);
-        call.enqueue(new Callback<>() {
-            @Override
-            public void onResponse(Call<RoomResponse> call, Response<RoomResponse> response) {
-                if (response.isSuccessful()) {
-                    RoomResponse body = response.body();
-                    if (body != null) {
-                        if (body.isOk()) {
-                            RoomInfo roomInfo = body.getRoom();
-                            List<String> participants = roomInfo.getParticipants();
-
-
-                            int numParticipants = participants != null ? participants.size() : 0;
-                            iAmCaller = (numParticipants == 2);
-                            globalRoom = roomInfo.getName();
-                            globalUserName = name;
-                            sfuClient.connect(WEB_SOCKET_URL);
-                            sendVideoCallEvent(new VideoCallEvent.Connected(roomInfo, name, iAmCaller, inRoom));
-                        } else {
-                            if (body.getError() != null) {
-//                                Toast.makeText(VideoCallActivity.this,
-//                                        body.getError(), Toast.LENGTH_SHORT).show();
-                            }
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<RoomResponse> call, Throwable t) {
-                Log.e(TAG, "onFailure: JOIN ROOM", t);
-            }
-        });
-    }
-
-    public void leaveRoom(String room, String name){
-        Map<String, String> body = new HashMap<>();
-        body.put("roomName", room);
-        body.put("userName", name);
-        Call<RoomResponse> call = apiServices.leaveRoom(body);
-        call.enqueue(new Callback<>() {
-            @Override
-            public void onResponse(Call<RoomResponse> call, Response<RoomResponse> response) {
-                if (response.isSuccessful()) {
-                    RoomResponse body = response.body();
-                    if (body != null) {
-                        if (body.isOk()) {
-                            Log.d(TAG, "LEAVE ROOM SUCCESS");
-//                            clearViews();
-                            sfuClient.close();
-                            sendVideoCallEvent(new VideoCallEvent.Disconnect());
-                        }
-                    }
-                }
-            }
-
-            @Override
-            public void onFailure(Call<RoomResponse> call, Throwable t) {
-                Log.e(TAG, "onFailure: LEAVE ROOM", t);
-            }
-        });
-    }
-
-
-    @Override
-    public void onConnected() {
-        try {
-            JSONObject joinJson = new JSONObject();
-            joinJson.put("type", "join");
-            joinJson.put("room", globalRoom);
-            joinJson.put("userName", globalUserName);
-
-            sfuClient.send(joinJson.toString());
-            Log.d(TAG, "JOIN enviado: " + joinJson);
-
-        } catch (Exception e) {
-            Log.e(TAG, "Error creando/enviando JOIN", e);
-        }
-
-        Log.d(TAG, "CONNECTED ");
-        if (iAmCaller){
-
-            sendVideoCallEvent(new VideoCallEvent.CallerConnected());
-        }else{
-            sendVideoCallEvent(new VideoCallEvent.Connecting());
-        }
-    }
-
-    @Override
-    public void onDisconnected() {
-        Log.d(TAG, "WEB SOCKET CERRADO: ");
-    }
-
-    @Override
-    public void onMessage(String text) {
-        Log.d(TAG, "onMessage RECEIVED: " + text);
-
-        handleWebSocketMessage(text);
-    }
-
-    @Override
-    public void onFailure(Throwable t) {
-        Log.e("SFU", "Error WebSocket", t);
-    }
-
     public void handleWebSocketMessage(String text) {
         try {
             JSONObject json = new JSONObject(text);
@@ -234,6 +86,20 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
             switch (type) {
                 case "joined":
                     Log.d(TAG, "Mensaje joined recibido");
+                    break;
+                case "user-audio-state":
+                    Log.d(TAG, "USER_AUDIO_ENABLE");
+                    handleToggleAudio(json);
+                    break;
+                case "user-video-state":
+                    Log.d(TAG, "USER VIDEO ENABLE");
+                    handleToggleVideo(json);
+                    break;
+                case "leave":
+                    Log.d(TAG, "USER LEAVE");
+                    break;
+                case "user-left":
+                    Log.d(TAG, "USER LEAVE 2 ");
                     break;
                 case "answer":
                     JSONObject sdpObj = json.getJSONObject("sdp");
@@ -347,6 +213,44 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
         }, answer);
     }
 
+    public void handleToggleAudio(JSONObject json) {
+        try {
+            String remoteUsername = json.optString("userName");
+            boolean audioStatus = json.getBoolean("audioEnabled");
+            if (globalRoom.isEmpty() && globalUserName.isEmpty()){
+                sendVideoCallEvent(new VideoCallEvent.ToggleLocalAudio(audioStatus));
+            }else if (remoteUsername.equalsIgnoreCase(globalUserName)){
+                sendVideoCallEvent(new VideoCallEvent.ToggleLocalAudio(audioStatus));
+            }else{
+                sendVideoCallEvent(new VideoCallEvent.ToggleRemoteAudio(audioStatus));
+            }
+
+            Log.d(TAG, "TOGGLE AUDIO");
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error TOGGLE AUDIO ", e);
+        }
+    }
+
+    public void handleToggleVideo(JSONObject json) {
+        try {
+            String remoteUsername = json.optString("userName");
+            boolean videoStatus = json.getBoolean("videoEnable");
+            if (globalRoom.isEmpty() && globalUserName.isEmpty()){
+                sendVideoCallEvent(new VideoCallEvent.ToggleLocalVideo(videoStatus));
+            }else if (remoteUsername.equalsIgnoreCase(globalUserName)){
+                sendVideoCallEvent(new VideoCallEvent.ToggleLocalVideo(videoStatus));
+            }else {
+                sendVideoCallEvent(new VideoCallEvent.ToggleRemoteVideo(videoStatus));
+            }
+
+            Log.d(TAG, "TOGGLE VIDEO");
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error TOGGLE VIDEO ", e);
+        }
+    }
+
 
     public void handleRemoteIceCandidate(JSONObject json) {
         if (peerConnection == null) return;
@@ -395,6 +299,7 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
                     @Override
                     public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
                         Log.d(TAG, "ICE state: " + iceConnectionState);
+
                     }
 
                     @Override
@@ -419,7 +324,8 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
                     }
 
                     @Override
-                    public void onAddStream(MediaStream mediaStream) {
+                    public void onAddStream(MediaStream mediaStream){
+                        Log.d(TAG, "onAddStream: ");
                     }
 
                     @Override
@@ -448,6 +354,10 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
                         }
                     }
 
+                    @Override
+                    public void onConnectionChange(PeerConnection.PeerConnectionState newState) {
+                        Log.d(TAG, "onConnectionChange: " + newState);
+                    }
                 }
         );
 
@@ -519,6 +429,212 @@ public class VideoCallManager implements SfuWebSocketClient.Callback{
         } catch (Exception e) {
             Log.e(TAG, "Error creando JSON candidate", e);
         }
+    }
+
+    public void sendToggleAudioEvent(VideoCallViewEvent.ToggleLocalAudio audio) {
+        try {
+
+            JSONObject json = new JSONObject();
+            json.put("type", "user-audio-state");
+            json.put("room", globalRoom);
+            json.put("userName", audio.getUserName());
+            json.put("audioEnabled", audio.isMicEnable());
+
+            if (sfuClient.isConnected()){
+                Log.d(TAG, "TOGGLE AUDIO SEND: " + json);
+                sfuClient.send(json.toString());
+            }else{
+                Log.d(TAG, "TOGGLE AUDIO LOCAL NO SEND: " + json);
+                handleToggleAudio(json);
+            }
+
+
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error creando JSON candidate", e);
+        }
+    }
+
+    public void sendToggleVideoEvent(VideoCallViewEvent.ToggleLocalVideo video) {
+        try {
+            JSONObject json = new JSONObject();
+            json.put("type", "user-video-state");
+            json.put("room", globalRoom);
+            json.put("userName", video.getUserName());
+            json.put("videoEnable", video.isVideoEnable());
+
+            if (sfuClient.isConnected()){
+                Log.d(TAG, "TOGGLE VIDEO SEND: " + json);
+                sfuClient.send(json.toString());
+            }else{
+                Log.d(TAG, "TOGGLE VIDEO LOCAL NO SEND: " + json);
+                handleToggleVideo(json);
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error creando JSON candidate", e);
+        }
+    }
+
+
+    @Override
+    public void onConnected() {
+        try {
+            JSONObject joinJson = new JSONObject();
+            joinJson.put("type", "join");
+            joinJson.put("room", globalRoom);
+            joinJson.put("userName", globalUserName);
+
+            sfuClient.send(joinJson.toString());
+            Log.d(TAG, "JOIN enviado: " + joinJson);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error creando/enviando JOIN", e);
+        }
+
+        Log.d(TAG, "CONNECTED ");
+        if (iAmCaller){
+            if (peerConnection == null){
+                createPeerConnection();
+            }
+            createAndSendOffer();
+        }
+        sendVideoCallEvent(new VideoCallEvent.Connected(localRoomInfo, globalUserName, iAmCaller, isInRoom));
+
+    }
+
+    @Override
+    public void onDisconnected() {
+        Log.d(TAG, "WEB SOCKET CERRADO: ");
+    }
+
+    @Override
+    public void onMessage(String text) {
+        Log.d(TAG, "onMessage RECEIVED: " + text);
+
+        handleWebSocketMessage(text);
+    }
+
+    @Override
+    public void onFailure(Throwable t) {
+        Log.e("SFU", "Error WebSocket", t);
+    }
+
+
+
+    public void createRoom(String room, String name){
+        Map<String, String> body = new HashMap<>();
+        body.put("roomName", room);
+        body.put("userName", name);
+
+        Call<RoomResponse> call = apiServices.createRoom(body);
+        call.enqueue(new Callback<>() {
+            @Override
+            public void onResponse(Call<RoomResponse> call, Response<RoomResponse> response) {
+                if (response.isSuccessful()) {
+                    RoomResponse body = response.body();
+                    if (body != null) {
+                        if (body.isOk()) {
+                            RoomInfo roomInfo = body.getRoom();
+                            globalRoom = roomInfo.getName();
+                            globalUserName = name;
+                            boolean inRoom = true;
+
+                            joinRoom(roomInfo.getName(), name, inRoom);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<RoomResponse> call, Throwable t) {
+                Log.e(TAG, "onFailure: CREATE ROOM", t);
+            }
+        });
+    }
+
+    public void joinRoom(String room, String name, boolean inRoom){
+        Map<String, String> body = new HashMap<>();
+        body.put("roomName", room);
+        body.put("userName", name);
+
+        Call<RoomResponse> call = apiServices.joinRoom(body);
+        call.enqueue(new Callback<>() {
+            @Override
+            public void onResponse(Call<RoomResponse> call, Response<RoomResponse> response) {
+                if (response.isSuccessful()) {
+                    RoomResponse body = response.body();
+                    if (body != null) {
+                        if (body.isOk()) {
+                            RoomInfo roomInfo = body.getRoom();
+                            List<String> participants = roomInfo.getParticipants();
+
+                            int numParticipants = participants != null ? participants.size() : 0;
+                            iAmCaller = (numParticipants == 2);
+                            globalRoom = roomInfo.getName();
+                            globalUserName = name;
+                            sfuClient.connect(WEB_SOCKET_URL);
+                            localRoomInfo = roomInfo;
+                            isInRoom = inRoom;
+
+                            createPeerConnection();
+//                            sendVideoCallEvent(new VideoCallEvent.Connected(roomInfo, name, iAmCaller, inRoom));
+                        } else {
+                            if (body.getError() != null) {
+//                                Toast.makeText(VideoCallActivity.this,
+//                                        body.getError(), Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<RoomResponse> call, Throwable t) {
+                Log.e(TAG, "onFailure: JOIN ROOM", t);
+            }
+        });
+    }
+
+    public void leaveRoom(String room, String name){
+        Map<String, String> body = new HashMap<>();
+        body.put("roomName", room);
+        body.put("userName", name);
+        Call<RoomResponse> call = apiServices.leaveRoom(body);
+        call.enqueue(new Callback<>() {
+            @Override
+            public void onResponse(Call<RoomResponse> call, Response<RoomResponse> response) {
+                if (response.isSuccessful()) {
+                    RoomResponse body = response.body();
+                    if (body != null) {
+                        if (body.isOk()) {
+                            Log.d(TAG, "LEAVE ROOM SUCCESS");
+//                            clearViews();
+                            try {
+                                JSONObject joinJson = new JSONObject();
+                                joinJson.put("type", "leave");
+                                joinJson.put("room", globalRoom);
+                                joinJson.put("userName", globalUserName);
+
+                                sfuClient.send(joinJson.toString());
+                                Log.d(TAG, "JOIN enviado: " + joinJson);
+
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error creando/enviando JOIN", e);
+                            }
+
+                            sfuClient.close();
+                            sendVideoCallEvent(new VideoCallEvent.Disconnect());
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<RoomResponse> call, Throwable t) {
+                Log.e(TAG, "onFailure: LEAVE ROOM", t);
+            }
+        });
     }
 
 }
