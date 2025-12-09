@@ -1,5 +1,7 @@
 package com.t4app.videocalltest.viewmodel;
 
+import android.media.AudioDeviceInfo;
+
 public class VideoCallViewEvent {
 
     public static class Connected extends VideoCallViewEvent {
@@ -110,6 +112,19 @@ public class VideoCallViewEvent {
         }
     }
 
+    public static class ChangeAudioOutput extends VideoCallViewEvent {
+        private final AudioDeviceInfo deviceSelected;
+
+        public ChangeAudioOutput(AudioDeviceInfo deviceSelected) {
+            this.deviceSelected = deviceSelected;
+        }
+
+        public AudioDeviceInfo getDeviceSelected() {
+            return deviceSelected;
+        }
+    }
+
 
     public static class OnResume extends VideoCallViewEvent { }
+    public static class OnPause extends VideoCallViewEvent { }
 }

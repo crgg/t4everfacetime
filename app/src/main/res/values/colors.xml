@@ -2,6 +2,7 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="background">#FFFFFFFF</color>
     <color name="icon_tint">#FFFFFFFF</color>
     <color name="green">#FD3EA92B</color>
     <color name="transparent_black">#8F4F4D4D</color>
@@ -9,6 +10,8 @@
     <color name="icon_action">#BA323232</color>
     <color name="yellow">#FDBBA124</color>
     <color name="red">#FDA51E1E</color>
+
+    <color name="cam_off_background">#3A3E5E</color>
 
     <color name="top_color_gradient">#16328E</color>
     <color name="mid_color_gradient">#057AFF</color>

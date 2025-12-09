@@ -39,6 +39,42 @@ public class VideoCallEvent {
         }
     }
 
+    public static class UserJoined extends VideoCallEvent {
+        private final String name;
+        private final String room;
+
+        public UserJoined(String name, String room) {
+            this.name = name;
+            this.room = room;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getRoom() {
+            return room;
+        }
+    }
+
+    public static class UserLeave extends VideoCallEvent {
+        private final String name;
+        private final String room;
+
+        public UserLeave(String name, String room) {
+            this.name = name;
+            this.room = room;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getRoom() {
+            return room;
+        }
+    }
+
     public static class CallerConnected extends VideoCallEvent { }
 
     public static class Disconnect extends VideoCallEvent { }
