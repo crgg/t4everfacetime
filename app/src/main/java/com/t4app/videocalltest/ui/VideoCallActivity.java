@@ -21,31 +21,23 @@ import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.t4app.videocalltest.MessagesUtils;
+import com.t4app.videocalltest.PermissionUtil;
 import com.t4app.videocalltest.R;
+import com.t4app.videocalltest.SafeClickListener;
 import com.t4app.videocalltest.databinding.ActivityVideoCallBinding;
-import com.t4app.videocalltest.models.LocalParticipant;
+import com.t4app.videocalltest.models.Participant;
 import com.t4app.videocalltest.models.RemoteParticipant;
 import com.t4app.videocalltest.viewmodel.CallViewModel;
 import com.t4app.videocalltest.viewmodel.CallViewModelFactory;
-import com.t4app.videocalltest.viewmodel.VideoCallEvent;
-import com.t4app.videocalltest.viewmodel.VideoCallManager;
-import com.t4app.videocalltest.viewmodel.VideoCallViewEvent;
+import com.t4app.videocalltest.events.VideoCallEvent;
+import com.t4app.videocalltest.viewmodel.VideoCallManagerHolder;
+import com.t4app.videocalltest.events.VideoCallViewEvent;
+import com.t4app.videocalltest.viewmodel.manager.VideoCallManager;
 
-import org.webrtc.AudioSource;
-import org.webrtc.AudioTrack;
-import org.webrtc.Camera1Enumerator;
-import org.webrtc.Camera2Enumerator;
-import org.webrtc.CameraEnumerator;
 import org.webrtc.DefaultVideoDecoderFactory;
 import org.webrtc.DefaultVideoEncoderFactory;
 import org.webrtc.EglBase;
-import org.webrtc.MediaConstraints;
-import org.webrtc.PeerConnection;
 import org.webrtc.PeerConnectionFactory;
-import org.webrtc.SurfaceTextureHelper;
-import org.webrtc.SurfaceViewRenderer;
-import org.webrtc.VideoCapturer;
-import org.webrtc.VideoSource;
 import org.webrtc.VideoTrack;
 
 import java.util.ArrayList;
@@ -63,31 +55,21 @@ public class VideoCallActivity extends AppCompatActivity {
     private String globalUserName = "";
     private boolean inRoom = false;
     private boolean isIncoming = false;
-    private boolean iAmCaller = false;
-    private boolean hasJoinedRoom = false;
     private boolean isLocalInMain = false;
-    private boolean connected = false;
-    private boolean videoEnable = false;
-    private boolean micEnable = false;
-    private boolean speakerEnable = true;
 
     private PeerConnectionFactory peerConnectionFactory;
-    private PeerConnection peerConnection;
     private EglBase eglBase;
 
-    private VideoSource videoSource;
-    private VideoTrack localVideoTrack;
-    private AudioSource audioSource;
-    private AudioTrack localAudioTrack;
-
     private VideoTrack remoteVideoTrack;
-
 
     private VideoCallManager videoCallManager;
     private CallViewModel viewModel;
 
-    private LocalParticipant localParticipant;
+    private VideoTrack localVideoTrack;
+
     private RemoteParticipant remoteParticipant;
+
+    private List<Participant> participants;
 
     private ActivityResultLauncher<String[]> permissionsLauncher;
 
@@ -107,7 +89,8 @@ public class VideoCallActivity extends AppCompatActivity {
         pinRender = binding.pinContainer;
 
         remoteParticipant = new RemoteParticipant();
-        localParticipant = new LocalParticipant();
+        remoteParticipant.setVideoTrackList(new ArrayList<>());
+        remoteParticipant.setAudioTrackList(new ArrayList<>());
 
         permissionsLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
@@ -121,7 +104,6 @@ public class VideoCallActivity extends AppCompatActivity {
                             viewModel.processInput(new VideoCallViewEvent.IncomingCall(globalRoom, globalUserName));
                         }else{
                             viewModel.processInput(new VideoCallViewEvent.OnResume());
-                            createLocalMediaTracks();
                         }
                     }
                 }
@@ -130,23 +112,17 @@ public class VideoCallActivity extends AppCompatActivity {
         if (!isIncoming){
             if (!checkPermissionForCameraAndMicrophone()) {
                 requestPermissions();
-                micEnable = false;
-                videoEnable = false;
-            }else{
-                micEnable = true;
-                videoEnable = true;
             }
         }
 
         initWebRTC();
-        bindVideoBtn();
-        bindMicBtn();
 
+        videoCallManager = new VideoCallManager(getApplicationContext());
+        videoCallManager.initLocalMedia(peerConnectionFactory, eglBase);
 
-        videoCallManager = new VideoCallManager(globalUserName,
-                globalRoom, peerConnection, peerConnectionFactory, localVideoTrack, localAudioTrack);
+        PermissionUtil permissionUtil = new PermissionUtil(this);
 
-        CallViewModelFactory factory = new CallViewModelFactory(videoCallManager);
+        CallViewModelFactory factory = new CallViewModelFactory(videoCallManager, permissionUtil);
 
         viewModel = new ViewModelProvider(this, factory)
                 .get(CallViewModel.class);
@@ -158,7 +134,7 @@ public class VideoCallActivity extends AppCompatActivity {
             String userName = binding.yourNameEt.getText().toString();
 
             if (!roomName.isEmpty() && !userName.isEmpty()){
-                viewModel.processInput(new VideoCallViewEvent.Connected(roomName, userName));
+                viewModel.processInput(new VideoCallViewEvent.CreateRoom(roomName, userName));
             }
         });
 
@@ -183,29 +159,23 @@ public class VideoCallActivity extends AppCompatActivity {
 
         binding.leaveRoomBtn.setEnabled(false);
 
-        binding.videoBtn.setOnClickListener(view -> {
-            videoEnable = !videoEnable;
-            if (localVideoTrack != null){
-                viewModel.processInput(new VideoCallViewEvent.ToggleLocalVideo(globalUserName, videoEnable));
+        binding.videoBtn.setOnClickListener(view -> viewModel.processInput(new VideoCallViewEvent.ToggleLocalVideo()));
+
+        binding.micBtn.setOnClickListener(view -> viewModel.processInput(new VideoCallViewEvent.ToggleLocalAudio()));
+
+        binding.soundBtn.setOnClickListener(new SafeClickListener() {
+            @Override
+            public void onSafeClick(View v) {
+                getAvailableAudioDevices();
             }
         });
 
-        binding.micBtn.setOnClickListener(view -> {
-            micEnable = !micEnable;
-            if (localAudioTrack != null){
-                viewModel.processInput(new VideoCallViewEvent.ToggleLocalAudio(globalUserName, micEnable));
+        pinRender.setOnClickListener(new SafeClickListener() {
+            @Override
+            public void onSafeClick(View v) {
+                //TODO:SWAP VIDEO FUNCTION HERE
             }
         });
-
-        binding.soundBtn.setOnClickListener(view -> {
-            speakerEnable = !speakerEnable;
-            getAvailableAudioDevices();
-
-        });
-
-        mainRender.setOnClickListener(view -> swapVideo());
-
-        pinRender.setOnClickListener(view -> swapVideo());
 
         if (isIncoming){
             globalRoom = getIntent().getStringExtra("room_name");
@@ -301,17 +271,16 @@ public class VideoCallActivity extends AppCompatActivity {
     }
 
 
-    private void bindMicBtn(){
-        localAudioTrack.setEnabled(micEnable);
+    private void bindMicBtn(boolean status){
         if (isLocalInMain){
-            mainRender.setMuted(micEnable);
-            if (micEnable){
+            mainRender.setMuted(status);
+            if (status){
                 mainRender.setMutedText("You are muted");
             }
         }else{
-            pinRender.setMuted(micEnable);
+            pinRender.setMuted(status);
         }
-        if (micEnable){
+        if (status){
             binding.micBtn.setImageResource(R.drawable.ic_mic);
             int micIconColor = ContextCompat.getColor(this, R.color.white);
             int bgMicColor   = ContextCompat.getColor(this, R.color.action_button);
@@ -329,24 +298,21 @@ public class VideoCallActivity extends AppCompatActivity {
 
     }
 
-
-    private void bindVideoBtn(){
-        localVideoTrack.setEnabled(videoEnable);
+    private void bindVideoBtn(boolean status){
         if (isLocalInMain){
-            if (videoEnable){
+            if (status){
                 mainRender.setState(ParticipantView.State.VIDEO);
             }else{
                 mainRender.setState(ParticipantView.State.NO_VIDEO);
             }
         }else{
-            if (videoEnable){
+            if (status){
                 pinRender.setState(ParticipantView.State.VIDEO);
             }else{
                 pinRender.setState(ParticipantView.State.NO_VIDEO);
             }
         }
-
-        if (videoEnable){
+        if (status){
             binding.videoBtn.setImageResource(R.drawable.ic_video_cam);
 
             int videoIconColor = ContextCompat.getColor(this, R.color.black);
@@ -401,7 +367,6 @@ public class VideoCallActivity extends AppCompatActivity {
                 .setVideoDecoderFactory(decoderFactory)
                 .createPeerConnectionFactory();
 
-        createLocalMediaTracks();
     }
 
     private void observeEvents(){
@@ -416,11 +381,8 @@ public class VideoCallActivity extends AppCompatActivity {
                     textInfo.append(formatedString);
                 }
 
-                iAmCaller = videoCall.isiAmCaller();
                 inRoom = videoCall.isInRoom();
 
-                connected = true;
-                hasJoinedRoom = true;
                 globalRoom = videoCall.getRoomInfo().getName();
                 globalUserName = videoCall.getName();
                 inRoom = true;
@@ -449,29 +411,33 @@ public class VideoCallActivity extends AppCompatActivity {
                 VideoCallEvent.SendIceCandidate sendIceCandidate = (VideoCallEvent.SendIceCandidate) videoCallEvent;
                 videoCallManager.sendIceCandidate(sendIceCandidate.getIceCandidate());
 
-            }else if (videoCallEvent instanceof VideoCallEvent.AddLocalUser){
-
-//                VideoCallEvent.AddLocalUser addLocalUser = (VideoCallEvent.AddLocalUser) videoCallEvent;
-//                List<String> streamIds = addLocalUser.getStreamIds();
-//                if (peerConnection != null){
-//                    peerConnection.addTrack(localVideoTrack, streamIds);
-//                    peerConnection.addTrack(localAudioTrack, streamIds);
-//                }
-
             }else if (videoCallEvent instanceof VideoCallEvent.AddRemoteUser){
 
                 Log.d(TAG, "ADD REMOTE: ");
                 VideoCallEvent.AddRemoteUser remoteUser = (VideoCallEvent.AddRemoteUser) videoCallEvent;
                 remoteVideoTrack = remoteUser.getRemoteVideoTrack();
                 isLocalInMain = remoteUser.isLocalInRoom();
+                remoteParticipant.getVideoTracks().add(remoteVideoTrack);
+                remoteParticipant.setState(Participant.State.CONNECTED);
+
+
+                if (VideoCallManagerHolder.getParticipants() == null){
+                    participants = new ArrayList<>();
+                }
+                participants.add(remoteParticipant);
+                VideoCallManagerHolder.setParticipants(participants);
+
                 attachRemoteVideo();
 
             }else if (videoCallEvent instanceof VideoCallEvent.ToggleLocalAudio){
-                Log.d(TAG, "TOGGLE LOCAL AUDIO: ");
-                bindMicBtn();
+
+                VideoCallEvent.ToggleLocalAudio audio = (VideoCallEvent.ToggleLocalAudio) videoCallEvent;
+                bindMicBtn(audio.isAudioStatus());
+
             }else if (videoCallEvent instanceof VideoCallEvent.ToggleLocalVideo){
-                Log.d(TAG, "TOGGLE LOCAL VIDEO:");
-                bindVideoBtn();
+
+                VideoCallEvent.ToggleLocalVideo video = (VideoCallEvent.ToggleLocalVideo) videoCallEvent;
+                bindVideoBtn(video.isVideoStatus());
 
             }else if (videoCallEvent instanceof VideoCallEvent.ToggleRemoteAudio){
 
@@ -486,12 +452,51 @@ public class VideoCallActivity extends AppCompatActivity {
 
             }else if (videoCallEvent instanceof VideoCallEvent.UserJoined){
 
+                VideoCallEvent.UserJoined userJoined = (VideoCallEvent.UserJoined) videoCallEvent;
+                remoteParticipant.setName(userJoined.getName());
 
             }else if (videoCallEvent instanceof VideoCallEvent.UserLeave){
 
 
+            }else if (videoCallEvent instanceof VideoCallEvent.LocalParticipantEvent){
+                Log.d(TAG, "ENTRYU AQUIII TRACK VIDEO UPDATE: 1 ");
+                handleLocalParticipantEvent((VideoCallEvent.LocalParticipantEvent) videoCallEvent);
+
             }
         });
+    }
+
+    private void handleLocalParticipantEvent(VideoCallEvent.LocalParticipantEvent event){
+        Log.d(TAG, "EVENTTTT LOCAL PARTICIPANT: " + event.getClass());
+        if (event instanceof VideoCallEvent.LocalParticipantEvent.LocalVideoTrackUpdated){
+            VideoCallEvent.LocalParticipantEvent.LocalVideoTrackUpdated trackUpdated =
+                    (VideoCallEvent.LocalParticipantEvent.LocalVideoTrackUpdated) event;
+
+            Log.d(TAG, "ENTRYU AQUIII TRACK VIDEO UPDATE: ");
+            bindVideoBtn(trackUpdated.isEnable());
+
+            if (trackUpdated.getVideoTrack() != null){
+                Log.d(TAG, "IS NOT NULL VIDEO TRACK: ");
+                trackUpdated.getVideoTrack().removeSink(mainRender.getVideoView());
+                trackUpdated.getVideoTrack().removeSink(pinRender.getVideoView());
+                if (isLocalInMain){
+                    trackUpdated.getVideoTrack().addSink(mainRender.getVideoView());
+                    mainRender.setMirror(true);
+                }else{
+                    trackUpdated.getVideoTrack().addSink(pinRender.getVideoView());
+                    pinRender.setMirror(true);
+                }
+
+                localVideoTrack = trackUpdated.getVideoTrack();
+            }
+
+        }else if (event instanceof VideoCallEvent.LocalParticipantEvent.LocalAudioTrackUpdated){
+            VideoCallEvent.LocalParticipantEvent.LocalAudioTrackUpdated trackUpdated =
+                    (VideoCallEvent.LocalParticipantEvent.LocalAudioTrackUpdated) event;
+
+            bindMicBtn(trackUpdated.isEnable());
+
+        }
     }
 
     private void toggleRemoteVideo(boolean status) {
@@ -510,8 +515,6 @@ public class VideoCallActivity extends AppCompatActivity {
         }
     }
 
-
-
     private void toggleRemoteAudio(boolean status) {
         if (isLocalInMain){
             pinRender.setMuted(status);
@@ -521,91 +524,6 @@ public class VideoCallActivity extends AppCompatActivity {
         }
     }
 
-    private ParticipantView getRemoteView() {
-        return isLocalInMain ? binding.pinContainer : binding.mainContainer;
-    }
-
-
-
-    private void swapVideo(){
-        if (localVideoTrack == null || remoteVideoTrack == null) return;
-
-        if (isLocalInMain){
-            localVideoTrack.removeSink(mainRender.getVideoView());
-            remoteVideoTrack.removeSink(pinRender.getVideoView());
-
-            localVideoTrack.addSink(pinRender.getVideoView());
-            remoteVideoTrack.addSink(mainRender.getVideoView());
-
-            mainRender.setMirror(false);
-            pinRender.setMirror(true);
-
-            isLocalInMain = false;
-        }else{
-            remoteVideoTrack.removeSink(mainRender.getVideoView());
-            localVideoTrack.removeSink(pinRender.getVideoView());
-
-            remoteVideoTrack.addSink(pinRender.getVideoView());
-            localVideoTrack.addSink(mainRender.getVideoView());
-
-            mainRender.setMirror(true);
-            pinRender.setMirror(false);
-
-            isLocalInMain = true;
-        }
-
-        mainRender.requestLayout();
-        pinRender.requestLayout();
-    }
-
-    private void createLocalMediaTracks(){
-        VideoCapturer videoCapturer = createCameraCapturer();
-        if (videoCapturer == null){
-            Log.d(TAG, "NULL VIDEO CAPTURER");
-            return;
-        }
-
-        SurfaceTextureHelper surfaceTextureHelper =
-                SurfaceTextureHelper.create("CaptureThread", eglBase.getEglBaseContext());
-
-        videoSource = peerConnectionFactory.createVideoSource(false);
-        videoCapturer.initialize(surfaceTextureHelper, getApplicationContext(), videoSource.getCapturerObserver());
-
-        try {
-            videoCapturer.startCapture(640, 480, 30);
-        }catch (Exception e){
-            Log.e(TAG, "ERROR START CAPTURE: ", e);
-        }
-
-        localVideoTrack = peerConnectionFactory.createVideoTrack("video_track", videoSource);
-        localVideoTrack.addSink(mainRender.getVideoView());
-        mainRender.setMirror(true);
-        audioSource = peerConnectionFactory.createAudioSource(new MediaConstraints());
-        localAudioTrack = peerConnectionFactory.createAudioTrack("audio_track", audioSource);
-    }
-
-    private VideoCapturer createCameraCapturer(){
-        CameraEnumerator enumerator;
-        if (Camera2Enumerator.isSupported(this)){
-            enumerator = new Camera2Enumerator(this);
-        }else{
-            enumerator = new Camera1Enumerator(true);
-        }
-
-        for (String deviceName : enumerator.getDeviceNames()){
-            if (enumerator.isFrontFacing(deviceName)){
-                VideoCapturer capturer = enumerator.createCapturer(deviceName, null);
-                if (capturer != null) return  capturer;
-            }
-        }
-
-        for (String deviceName : enumerator.getDeviceNames()){
-            VideoCapturer capturer = enumerator.createCapturer(deviceName, null);
-            if (capturer != null) return  capturer;
-        }
-
-        return null;
-    }
 
     private void attachRemoteVideo() {
         if (remoteVideoTrack == null) {
@@ -613,7 +531,6 @@ public class VideoCallActivity extends AppCompatActivity {
             return;
         }
 
-        Log.d(TAG, "attachRemoteVideo: local=" + (localVideoTrack != null));
 
         remoteVideoTrack.removeSink(mainRender.getVideoView());
         remoteVideoTrack.removeSink(pinRender.getVideoView());
@@ -648,20 +565,9 @@ public class VideoCallActivity extends AppCompatActivity {
         pinRender.setVisibility(View.GONE);
 
         isLocalInMain = true;
-        attachMainView();
 
-        binding.leaveRoomBtn.setVisibility(View.GONE);
         binding.createRoomBtn.setVisibility(View.VISIBLE);
-    }
-
-    private void attachMainView(){
-        if (localVideoTrack == null) return;
-
-        localVideoTrack.removeSink(mainRender.getVideoView());
-        localVideoTrack.removeSink(pinRender.getVideoView());
-
-        localVideoTrack.addSink(mainRender.getVideoView());
-        mainRender.setMirror(true);
+        binding.joinRoomBtn.setVisibility(View.VISIBLE);
     }
 
     private boolean checkPermissionForCameraAndMicrophone() {
@@ -709,27 +615,18 @@ public class VideoCallActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        viewModel.processInput(new VideoCallViewEvent.OnResume());
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (peerConnection != null) {
-            peerConnection.close();
-        }
-
-        if (localVideoTrack != null) {
-            localVideoTrack.removeSink(mainRender.getVideoView());
-            localVideoTrack.removeSink(pinRender.getVideoView());
-        }
-        if (remoteVideoTrack != null) {
-            remoteVideoTrack.removeSink(mainRender.getVideoView());
-            remoteVideoTrack.removeSink(pinRender.getVideoView());
-        }
-
-        mainRender.getVideoView().release();
-        pinRender.getVideoView().release();
-
-        if (eglBase != null) {
-            eglBase.release();
-        }
-
     }
 }

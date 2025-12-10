@@ -3,4 +3,7 @@
     <string name="you">You</string>
     <string name="close">Close</string>
     <string name="alert">Alert</string>
+    <string name="notification_message">Tap to return to the call.</string>
+    <string name="room_notification_title">Ongoing video call in %s</string>
+    <string name="room_notification_channel_title">Video Call</string>
 </resources>

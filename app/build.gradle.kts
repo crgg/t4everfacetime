@@ -1,5 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
+    id ("com.google.dagger.hilt.android")
 }
 
 android {
@@ -39,14 +40,18 @@ android {
 
 dependencies {
 
-    implementation("com.squareup.okhttp3:okhttp:5.3.2")
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.google.code.gson:gson:2.10.1")
-    implementation("com.squareup.retrofit2:adapter-rxjava3:2.9.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation(libs.okhttp3.okhttp)
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.gson)
+    implementation("com.squareup.retrofit2:adapter-rxjava3:3.0.0")
+    implementation(libs.logging.interceptor)
 
-    implementation("io.github.webrtc-sdk:android:125.6422.06.1")
+    implementation(libs.android)
+
+    implementation("com.google.dagger:hilt-android:2.48")
+    annotationProcessor ("com.google.dagger:hilt-android-compiler:2.48")
+
 
     implementation(libs.appcompat)
     implementation(libs.material)

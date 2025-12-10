@@ -1,13 +1,19 @@
-package com.t4app.videocalltest.viewmodel;
+package com.t4app.videocalltest.events;
+
+import androidx.annotation.Nullable;
 
 import com.t4app.videocalltest.models.RoomInfo;
 
+import org.webrtc.AudioTrack;
 import org.webrtc.IceCandidate;
 import org.webrtc.VideoTrack;
 
-import java.util.List;
-
 public class VideoCallEvent {
+
+    public static final class Connecting extends VideoCallEvent {
+        public static final Connecting INSTANCE = new Connecting();
+        private Connecting() {}
+    }
 
     public static class Connected extends VideoCallEvent {
         private final RoomInfo roomInfo;
@@ -38,6 +44,27 @@ public class VideoCallEvent {
             return name;
         }
     }
+
+    public static class RoomConnected extends VideoCallEvent {
+        private final String name;
+
+        public RoomConnected(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    public static final class ConnectFailure extends VideoCallEvent {
+        public static final ConnectFailure INSTANCE = new ConnectFailure();
+        private ConnectFailure() {}
+    }
+
+    public static class Disconnect extends VideoCallEvent { }
+
+
 
     public static class UserJoined extends VideoCallEvent {
         private final String name;
@@ -77,9 +104,10 @@ public class VideoCallEvent {
 
     public static class CallerConnected extends VideoCallEvent { }
 
-    public static class Disconnect extends VideoCallEvent { }
 
     public static class RemoteDisconnect extends VideoCallEvent { }
+
+
 
     public static class SendIceCandidate extends VideoCallEvent {
         private final IceCandidate iceCandidate;
@@ -107,17 +135,6 @@ public class VideoCallEvent {
 
         public boolean isLocalInRoom() {
             return isLocalInRoom;
-        }
-    }
-
-    public static class AddLocalUser extends VideoCallEvent {
-       private final List<String> streamIds;
-        public AddLocalUser(List<String> streamIds) {
-           this.streamIds = streamIds;
-        }
-
-        public List<String> getStreamIds() {
-            return streamIds;
         }
     }
 
@@ -162,6 +179,50 @@ public class VideoCallEvent {
 
         public boolean isVideoStatus() {
             return videoStatus;
+        }
+    }
+
+    public static abstract class LocalParticipantEvent extends VideoCallEvent{
+        private LocalParticipantEvent() {}
+    }
+
+    public static final class LocalVideoTrackUpdated extends LocalParticipantEvent {
+        @Nullable
+        private final VideoTrack videoTrack;
+        private final boolean enable;
+
+        public LocalVideoTrackUpdated(@Nullable VideoTrack videoTrack, boolean enable) {
+            this.videoTrack = videoTrack;
+            this.enable = enable;
+        }
+
+        @Nullable
+        public VideoTrack getVideoTrack() {
+            return videoTrack;
+        }
+
+        public boolean isEnable() {
+            return enable;
+        }
+    }
+
+    public static final class LocalAudioTrackUpdated extends LocalParticipantEvent {
+        @Nullable
+        private final AudioTrack audioTrack;
+        private final boolean enable;
+
+        public LocalAudioTrackUpdated(@Nullable AudioTrack audioTrack, boolean enable) {
+            this.audioTrack = audioTrack;
+            this.enable = enable;
+        }
+
+        @Nullable
+        public AudioTrack getAudioTrack() {
+            return audioTrack;
+        }
+
+        public boolean isEnable() {
+            return enable;
         }
     }
 

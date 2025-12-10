@@ -1,4 +1,4 @@
-package com.t4app.videocalltest;
+package com.t4app.videocalltest.viewmodel;
 
 import android.util.Log;
 
