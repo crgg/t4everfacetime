@@ -9,6 +9,10 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
+
+        plugins {
+            id ("com.google.gms.google-services") version "4.4.1"
+        }
     }
 }
 dependencyResolutionManagement {
@@ -19,6 +23,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "VideoCallTest"
+
+rootProject.name = "T4VideoCall"
 include(":app")
  

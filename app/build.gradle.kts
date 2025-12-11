@@ -1,14 +1,15 @@
 plugins {
     alias(libs.plugins.android.application)
     id ("com.google.dagger.hilt.android")
+    id ("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.t4app.videocalltest"
+    namespace = "com.t4app.t4videocall"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.t4app.videocalltest"
+        applicationId = "com.t4app.t4videocall"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
@@ -39,6 +40,7 @@ android {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:33.5.0"))
 
     implementation(libs.okhttp3.okhttp)
     implementation(libs.retrofit)
@@ -52,6 +54,9 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.48")
     annotationProcessor ("com.google.dagger:hilt-android-compiler:2.48")
 
+    implementation ("com.google.firebase:firebase-auth")
+    implementation ("com.google.firebase:firebase-firestore")
+    implementation ("com.google.firebase:firebase-messaging")
 
     implementation(libs.appcompat)
     implementation(libs.material)

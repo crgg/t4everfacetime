@@ -20,6 +20,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:name=".AppController"
         android:allowBackup="true"
@@ -30,6 +32,9 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.VideoCallTest">
+        <activity
+            android:name=".MakeCallTestActivity"
+            android:exported="false" />
         <activity
             android:name=".ui.IncomingCallActivity"
             android:exported="false" />

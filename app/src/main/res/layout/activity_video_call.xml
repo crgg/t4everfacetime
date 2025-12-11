@@ -8,7 +8,7 @@
     android:layout_height="match_parent"
     tools:context=".ui.VideoCallActivity">
 
-    <com.t4app.videocalltest.ui.MainParticipantView
+    <com.t4app.t4videocall.ui.MainParticipantView
         android:id="@+id/mainContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -17,7 +17,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
 
-    <com.t4app.videocalltest.ui.ParticipantView
+    <com.t4app.t4videocall.ui.ParticipantView
         android:id="@+id/pinContainer"
         android:visibility="gone"
         android:layout_width="95dp"
@@ -27,73 +27,30 @@
         android:layout_marginEnd="20dp"
         android:layout_marginBottom="16dp"/>
 
-
     <TextView
-        android:id="@+id/infoRoom"
-        android:layout_margin="20dp"
+        android:id="@+id/callingToInfo"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        android:textSize="24sp"
+        app:layout_constraintVertical_bias="0.1"
+        app:layout_constraintBottom_toTopOf="@id/callActionsContainer"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-
-    <EditText
-        android:id="@+id/roomNameEt"
-        android:hint="Room Name"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/infoRoom"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintVertical_bias="0.1"
-        android:layout_marginStart="40dp"
-        android:layout_marginEnd="40dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-
-    <EditText
-        android:id="@+id/yourNameEt"
-        android:hint="Your Name"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/roomNameEt"
-        android:layout_marginTop="20dp"
-        android:layout_marginStart="40dp"
-        android:layout_marginEnd="40dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-
-    <LinearLayout
-        app:layout_constraintStart_toStartOf="parent"
-        android:orientation="vertical"
-        android:layout_marginStart="20dp"
-        android:layout_marginBottom="25dp"
-        app:layout_constraintBottom_toTopOf="@id/callActionsContainer"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"/>
 
-        <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/createRoomBtn"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:src="@drawable/ic_call"
-            android:layout_marginBottom="10dp"
-            android:layout_marginEnd="10dp"
-            android:background="@drawable/bg_round"
-            android:backgroundTint="@color/green"
-            android:layout_width="48dp"
-            android:layout_height="48dp"/>
+    <TextView
+        android:id="@+id/statusCallTv"
+        android:layout_marginTop="5dp"
+        android:textSize="17sp"
+        android:textColor="@color/black"
+        app:layout_constraintTop_toBottomOf="@id/callingToInfo"
+        app:layout_constraintEnd_toEndOf="@id/callingToInfo"
+        app:layout_constraintStart_toStartOf="@id/callingToInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
 
-        <androidx.appcompat.widget.AppCompatImageButton
-            android:id="@+id/joinRoomBtn"
-            android:src="@drawable/ic_call"
-            android:visibility="visible"
-            android:background="@drawable/bg_round"
-            android:backgroundTint="@color/yellow"
-            android:layout_marginEnd="10dp"
-            android:layout_width="48dp"
-            android:layout_height="48dp"/>
-
-    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/callActionsContainer"
